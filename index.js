@@ -32,7 +32,6 @@ app.post('/request_token', async (req, res) => {
     url: 'https://connectapi.garmin.com/oauth-service/oauth/request_token',
     method: 'POST'
   };
-
   const headers = oauth.toHeader(oauth.authorize(request_data));
 
   try {
@@ -43,6 +42,7 @@ app.post('/request_token', async (req, res) => {
 
     // Redirect user to Garmin's authorization URL
     const authorizationUrl = `https://connect.garmin.com/oauthConfirm?oauth_token=${oauthToken}`;
+    console.log("authorizationUrl",authorizationUrl)
     res.redirect(authorizationUrl);
   } catch (error) {
     res.status(error.response ? error.response.status : 500).json({ error: error.message });
@@ -52,7 +52,6 @@ app.post('/request_token', async (req, res) => {
 // Callback URL to handle the Garmin authorization and exchange for an access token
 app.get('/callback', async (req, res) => {
   const { oauth_token, oauth_verifier } = req.query;
-
   const request_data = {
     url: 'https://connectapi.garmin.com/oauth-service/oauth/access_token',
     method: 'POST',
@@ -67,7 +66,6 @@ app.get('/callback', async (req, res) => {
   try {
     const response = await axios.post(request_data.url, null, { headers });
     const responseData = querystring.parse(response.data);
-
     // Store the access token and secret for later use
     const accessToken = responseData.oauth_token;
     const accessTokenSecret = responseData.oauth_token_secret;
@@ -78,6 +76,41 @@ app.get('/callback', async (req, res) => {
     res.status(error.response ? error.response.status : 500).json({ error: error.message });
   }
 });
+
+app.get('/api/step-count', async (req, res) => {
+    const accessToken = req.query.access_token;
+
+    if (!accessToken) {
+        return res.status(400).send('Access token is required');
+    }
+
+    try {
+        const response = await axios.get('https://apis.garmin.com/wellness-api/rest/activities', {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`
+            }
+        });
+        res.json(response.data);
+    } catch (error) {
+        console.error('Error fetching step count:', error.response?.data || error.message);
+        res.status(500).send('Error fetching step count');
+    }
+});
+
+// POST endpoint to print query parameters and body
+app.post('/debug', (req, res) => {
+    // Log query parameters
+    console.log('Query Parameters:', req?.query ?? "null");
+  
+    // Log request body
+    console.log('Request Body:', req?.body ?? null);
+  
+    res.json({
+      message: 'Data received',
+      query: req.query,
+      body: req.body
+    });
+  });
 
 // Endpoint to set up the webhook for real-time data updates
 app.post('/setup_webhook', async (req, res) => {
@@ -107,3 +140,6 @@ app.post('/setup_webhook', async (req, res) => {
 app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`);
 });
+
+//lt --port 3000
+//https://github.com/localtunnel/localtunnel
